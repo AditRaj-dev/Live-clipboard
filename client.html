@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Live Clipboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    #drop {
+      border: 2px dashed #888;
+      padding: 40px;
+      text-align: center;
+      color: #555;
+      margin-bottom: 20px;
+    }
+    #output img {
+      max-width: 100%;
+      margin-top: 10px;
+    }
+    textarea {
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Live Clipboard – Web Client</h2>
+
+<div id="drop">Drag & Drop Image Here</div>
+
+<textarea id="text" rows="5" placeholder="Paste text here"></textarea>
+<br><br>
+<button onclick="sendText()">Send Text</button>
+
+<hr>
+
+<h3>Received Content</h3>
+<div id="output"></div>
+
+<script>
+const ws = new WebSocket("ws://127.0.0.1:9000/ws");
+const output = document.getElementById("output");
+
+ws.onopen = () => console.log("WebSocket connected");
+
+ws.onmessage = (e) => {
+  const msg = JSON.parse(e.data);
+
+  if (msg.type === "text") {
+    output.innerHTML = "<pre>" + msg.data + "</pre>";
+  }
+
+  if (msg.type === "image") {
+    output.innerHTML =
+      `<img src="data:image/png;base64,${msg.data}" />`;
+  }
+};
+
+ws.onerror = (e) => {
+  console.error("WebSocket error", e);
+};
+
+function sendText() {
+  const text = document.getElementById("text").value;
+  ws.send(JSON.stringify({ type: "text", data: text }));
+}
+
+const drop = document.getElementById("drop");
+
+drop.ondragover = (e) => e.preventDefault();
+
+drop.ondrop = (e) => {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    const base64 = reader.result.split(",")[1];
+    ws.send(JSON.stringify({ type: "image", data: base64 }));
+  };
+  reader.readAsDataURL(file);
+};
+</script>
+
+</body>
+</html>
